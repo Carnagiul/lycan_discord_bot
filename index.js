@@ -2,9 +2,39 @@ const { Client, GatewayIntentBits } = require('discord.js');
 
 // Remplace par ton token Discord et l'ID du canal
 const DISCORD_TOKEN = 'TOKEN_DISCORD';
-const CHANNEL_ID = '123456789012345678'; // Remplace avec l'ID du canal
 
-const pos = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:', ':keycap_ten:', ':one::one:', ':one::two:'];
+const pos = [
+  ':one:',
+  ':two:',
+  ':three:',
+  ':four:',
+  ':five:',
+  ':six:',
+  ':seven:',
+  ':eight:',
+  ':nine:',
+  ':keycap_ten:',
+  ':one::one:',
+  ':one::two:',
+  ':one::three:',
+  ':one::four:',
+  ':one::five:',
+  ':one::six:',
+  ':one::seven:',
+  ':one::eight:',
+  ':one::nine:',
+  ':two::zero:',
+  ':two::one:',
+  ':two::two:',
+  ':two::three:',
+  ':two::four:',
+  ':two::five:',
+  ':two::six:',
+  ':two::seven:',
+  ':two::eight:',
+  ':two::nine:',
+  ':three::zero:',
+];
 
 let gameState = {}; // Pour garder l'état du jeu, y compris les inscriptions
 
@@ -185,11 +215,22 @@ client.on('messageCreate', async (message) => {
         game.players.splice(playerIndex, 1);
         message.reply(`Le joueur ${pseudo} a été retiré de la liste des joueurs.`);
 
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, 12 - game.players));
+        await game.mainMessage.edit(createMasterMessage(game.formattedDate, game.slots - game.players));
         await game.threadMessage.edit(createThreadMessage(game));
 
       } else {
         message.reply(`Le joueur ${pseudo} n'est pas inscrit.`);
+      }
+    }
+
+    if (command === '!setSlots' && pseudo) {
+      if (pseudo >= 12 && pseudo <= pos.length) {
+        gameState[message.channel.id].slots = pseudo;
+        await game.mainMessage.edit(createMasterMessage(game.formattedDate, game.slots - game.players));
+        await game.threadMessage.edit(createThreadMessage(game));
+      }
+      else {
+        message.reply(`Le nombre de slots ${pseudo} n'est pas compris entre 12 et ${pos.length}.`);
       }
     }
   }
