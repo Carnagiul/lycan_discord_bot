@@ -49,8 +49,8 @@ const client = new Client({
 
 function createMasterMessage(formattedDate, avaibleSlots = 11) {
     return `
-:full_moon: **Appel à la meute !** :full_moon: [ @Ping soirée ]
-Ce soir, préparez-vous à une game Lycans :wolf::sparkles! 
+:full_moon: **Appel à la meute !** :full_moon: [ @Lycans ]
+Ce soir, préparez-vous à une game Lycans :wolf::sparkles!
 
 :video_game: **Au programme** : une partie 100% non moddé.
 :clock3: **Quand** : ${formattedDate}.
@@ -95,7 +95,10 @@ threadMessageContent += `
 
 **En Attente :**
 ${Array.from({ length: gameState.waitingList }, (_, i) => `- ${i} > ${i === 0 ? `<@${gameState.waitingList[i]}>` : ''}`).join('\n')}
-`;
+
+
+!claim pour réserver ta place !
+!unclaim si tu n'es plus dispo !`;
 
 return threadMessageContent;
 }
@@ -108,7 +111,7 @@ client.once('ready', () => {
 // Commande de création de partie
 client.on('messageCreate', async (message) => {
   if (!message.content.startsWith('!create_game') || message.author.bot) return;
-  
+
   // Extraire les arguments
   const args = message.content.slice('!create_game'.length).trim().split(/\s+/);
 
@@ -191,15 +194,17 @@ client.on('messageCreate', async (message) => {
     const command = args[0].toLowerCase();
     const pseudo = args[1];
 
-    if (command === '!claim' && pseudo) {
-      // Inscrire un joueur dans la liste des joueurs
+    if (command === '!claim') {
       const game = gameState[message.channel.id];
+      if (!pseudo)
+        pseudo = message.author.id
+      // Inscrire un joueur dans la liste des joueurs
       if (game.players.length < game.slots) {
         game.players.push(pseudo);
         message.reply(`Le joueur ${pseudo} a été ajouté à la liste des joueurs.`);
 
         // Mise à jour du message principal pour afficher les joueurs
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, 12 - game.players));
+        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
         await game.threadMessage.edit(createThreadMessage(game));
       } else {
         game.waitingList.push(pseudo);
@@ -207,7 +212,10 @@ client.on('messageCreate', async (message) => {
       }
     }
 
-    if (command === '!unclaim' && pseudo) {
+    if (command === '!unclaim') {
+      if (!pseudo)
+        pseudo = message.author.id
+
       // Retirer un joueur de la liste
       const game = gameState[message.channel.id];
       const playerIndex = game.players.indexOf(pseudo);
@@ -215,7 +223,7 @@ client.on('messageCreate', async (message) => {
         game.players.splice(playerIndex, 1);
         message.reply(`Le joueur ${pseudo} a été retiré de la liste des joueurs.`);
 
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, game.slots - game.players));
+        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
         await game.threadMessage.edit(createThreadMessage(game));
 
       } else {
@@ -226,7 +234,7 @@ client.on('messageCreate', async (message) => {
     if (command === '!setSlots' && pseudo) {
       if (pseudo >= 12 && pseudo <= pos.length) {
         gameState[message.channel.id].slots = pseudo;
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, game.slots - game.players));
+        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
         await game.threadMessage.edit(createThreadMessage(game));
       }
       else {
