@@ -49,12 +49,13 @@ const client = new Client({
 
 function createMasterMessage(formattedDate, avaibleSlots = 11) {
     return `
-:full_moon: **Appel à la meute !** :full_moon: [ @Lycans ]
-Ce soir, préparez-vous à une game Lycans :wolf::sparkles!
+:full_moon: **Appel à la meute !** :full_moon: <@Lycans> 
+Ce soir, préparez-vous à une game Lycans :wolf::sparkles:!
 
 :video_game: **Au programme** : une partie 100% non moddé.
 :clock3: **Quand** : ${formattedDate}.
 :Lycans: Si tu es débutant, tu es le bienvenu :wink:
+:point_right: **Réserve ta place** en répondant à ce message !
 
 :zap: **Attention, les places sont limitées !**
 :point_right: **${avaibleSlots}** joueurs peuvent encore rejoindre l’aventure. Ne tardez pas à réserver la vôtre pour ne pas rester dans l’ombre :crescent_moon:.
@@ -72,6 +73,7 @@ let threadMessageContent = `
 Code : \`${gameState.code}\`
 Serveur : ${gameState.server}
 Rendez-vous : ${gameState.formattedDate}
+Version : ${gameState.version}
 
 ------------------
 
@@ -97,8 +99,8 @@ threadMessageContent += `
 ${Array.from({ length: gameState.waitingList }, (_, i) => `- ${i} > ${i === 0 ? `<@${gameState.waitingList[i]}>` : ''}`).join('\n')}
 
 
-!claim pour réserver ta place !
-!unclaim si tu n'es plus dispo !`;
+!claim <Ton @Pseudo> pour réserver ta place !
+!unclaim <Ton @Pseudo> si tu n'es plus dispo !`;
 
 return threadMessageContent;
 }
@@ -165,6 +167,7 @@ client.on('messageCreate', async (message) => {
       code: code,
       slots: 12,
       server: server,
+      version: '15.3',
       formattedDate: formattedDate,
       players: [message.author.id], // Le créateur de la partie est inscrit
       waitingList: [],
@@ -192,57 +195,73 @@ client.on('messageCreate', async (message) => {
   if (message.channel.isThread() && gameState[message.channel.id]) {
     const args = message.content.split(/\s+/);
     const command = args[0].toLowerCase();
-    const pseudo = args[1];
+    var pseudo = args[1];
+    const game = gameState[message.channel.id];
 
-    if (command === '!claim') {
-      const game = gameState[message.channel.id];
-      if (!pseudo)
-        pseudo = message.author.id
-      // Inscrire un joueur dans la liste des joueurs
-      if (game.players.length < game.slots) {
-        game.players.push(pseudo);
-        message.reply(`Le joueur ${pseudo} a été ajouté à la liste des joueurs.`);
+    console.log(pseudo);
+    console.error(command);
 
-        // Mise à jour du message principal pour afficher les joueurs
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
-        await game.threadMessage.edit(createThreadMessage(game));
-      } else {
-        game.waitingList.push(pseudo);
-        message.reply(`Il n'y a plus de place, ${pseudo} a été ajouté à la liste d'attente.`);
-      }
+//    pseudo = pseudo ? pseudo : `@${message.author.username}`; // Utilisation du nom d'utilisateur
+
+    if (!pseudo) {
+      return ;
     }
+    switch (command) {
+      case '!claim':
+          // Inscrire un joueur dans la liste des joueurs
+          if (game.players.length < game.slots) {
+            game.players.push(pseudo);
+            message.reply(`Le joueur ${pseudo} a été ajouté à la liste des joueurs.`);
+    
+            // Mise à jour du message principal pour afficher les joueurs
+            await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
+            await game.threadMessage.edit(createThreadMessage(game));
+          } else {
+            game.waitingList.push(pseudo);
+            message.reply(`Il n'y a plus de place, ${pseudo} a été ajouté à la liste d'attente.`);
+          }
+          break;
+      case '!unclaim':
+        const playerIndex = game.players.indexOf(pseudo);
+        if (playerIndex !== -1) {
+          game.players.splice(playerIndex, 1);
+          message.reply(`Le joueur ${pseudo} a été retiré de la liste des joueurs.`);
+  
+          await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
+          await game.threadMessage.edit(createThreadMessage(game));
+  
+        } else {
+          message.reply(`Le joueur ${pseudo} n'est pas inscrit.`);
+        }
+        break;
+      case '!setslots':
+        pseudo = parseInt(args[1], 10);
+        if (pseudo >= 2 && pseudo <= pos.length) {
+          gameState[message.channel.id].slots = pseudo;
+          await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
+          await game.threadMessage.edit(createThreadMessage(game));
+        }
+        else {
+          message.reply(`Le nombre de slots ${pseudo} n'est pas compris entre 2 et ${pos.length}.`);
+        }
+        break;
 
-    if (command === '!unclaim') {
-      if (!pseudo)
-        pseudo = message.author.id
+      case '!setcode':
+        gameState[message.channel.id].code = pseudo;
+        await game.threadMessage.edit(createThreadMessage(gameState[message.channel.id]));
+        break;
+      case '!setversion':
+        gameState[message.channel.id].version = pseudo;
+        await game.threadMessage.edit(createThreadMessage(gameState[message.channel.id]));
 
-      // Retirer un joueur de la liste
-      const game = gameState[message.channel.id];
-      const playerIndex = game.players.indexOf(pseudo);
-      if (playerIndex !== -1) {
-        game.players.splice(playerIndex, 1);
-        message.reply(`Le joueur ${pseudo} a été retiré de la liste des joueurs.`);
-
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
-        await game.threadMessage.edit(createThreadMessage(game));
-
-      } else {
-        message.reply(`Le joueur ${pseudo} n'est pas inscrit.`);
-      }
-    }
-
-    if (command === '!setSlots' && pseudo) {
-      if (pseudo >= 12 && pseudo <= pos.length) {
-        gameState[message.channel.id].slots = pseudo;
-        await game.mainMessage.edit(createMasterMessage(game.formattedDate, parseInt(game.slots) - parseInt(game.players.length)));
-        await game.threadMessage.edit(createThreadMessage(game));
-      }
-      else {
-        message.reply(`Le nombre de slots ${pseudo} n'est pas compris entre 12 et ${pos.length}.`);
-      }
+        default:
+          message.reply(`Commande non reconnue.`);
+          break;
     }
   }
 });
 
+// Connecte le bot
+client.login(DISCORD_TOKEN);
 // Connecte le bot
 client.login(DISCORD_TOKEN);
